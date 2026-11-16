@@ -1,4 +1,4 @@
-"""Free, local text embeddings for searching the papers (no API key needed)."""
+"""Free, local text embeddings for searching the papers (no API key needed)"""
 from typing import List
 
 from fastembed import TextEmbedding
