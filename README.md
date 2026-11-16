@@ -1,4 +1,4 @@
-# Chat with your PDF
+# Chat with your data
 
 Upload one or more PDFs and ask questions about them. Every answer lists the pages it came from.
 
