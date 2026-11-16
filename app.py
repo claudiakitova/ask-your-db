@@ -8,7 +8,7 @@ from llama_index.llms.google_genai import GoogleGenAI
 
 from local_embedding import LocalEmbedding
 
-st.set_page_config(page_title="Chat with your PDF", page_icon="📄", layout="centered")
+st.set_page_config(page_title="Chat with your data", page_icon="📄", layout="centered")
 
 BOT, USER = "📄", "🙂"
 MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
@@ -74,7 +74,7 @@ def reset_chat():
 
 
 with st.sidebar:
-    st.markdown("### 📄 Chat with your PDF")
+    st.markdown("### 📄 Chat with your data")
     api_key = st.text_input(
         "Gemini API key", type="password",
         help="Free at aistudio.google.com/apikey. It stays in your browser session and isn't stored.",
@@ -84,7 +84,7 @@ with st.sidebar:
     model = st.selectbox("Model", MODELS)
     st.button("New chat", on_click=reset_chat, use_container_width=True)
 
-st.title("Chat with your PDF")
+st.title("Chat with your data")
 st.markdown(
     "<div class='subtitle'>Upload documents and ask questions about them. "
     "Every answer shows the pages it came from.</div>",
