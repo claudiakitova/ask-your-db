@@ -1,10 +1,6 @@
 import hashlib
-import io
-import time
 
 import streamlit as st
-from google import genai
-from google.genai import types
 from llama_index.core import Document, Settings, VectorStoreIndex
 from llama_index.core.chat_engine import CondensePlusContextChatEngine
 from llama_index.core.node_parser import SentenceSplitter
@@ -58,44 +54,14 @@ def friendly(error):
     return f"Gemini returned an error: {text[:300]}"
 
 
-def gemini_reader(api_key, model):
-    """Reads scans, pictures and recordings with Gemini: returns ask_ai(data, mime_type, prompt) -> text."""
-    client = genai.Client(api_key=api_key)
-
-    def ask_ai(data, mime_type, prompt):
-        try:
-            if len(data) < 18_000_000:
-                content = types.Part.from_bytes(data=data, mime_type=mime_type)
-            else:  # big files go through Gemini's file upload
-                content = client.files.upload(file=io.BytesIO(data), config={"mime_type": mime_type})
-                while content.state and content.state.name == "PROCESSING":
-                    time.sleep(2)
-                    content = client.files.get(name=content.name)
-            for attempt in range(3):  # Gemini is sometimes busy (500/503); try twice more
-                try:
-                    response = client.models.generate_content(
-                        model=model, contents=[content, prompt], config=types.GenerateContentConfig(temperature=0))
-                    return response.text or ""
-                except Exception as error:
-                    busy = any(code in str(error) for code in ("503", "500", "UNAVAILABLE", "INTERNAL"))
-                    if not busy or attempt == 2:
-                        raise
-                    time.sleep(4 * (attempt + 1))
-        except Exception as error:
-            raise readers.Unreadable(friendly(error)) from error
-
-    return ask_ai
-
-
 @st.cache_resource(show_spinner=False, max_entries=5)
-def build_index(files, model, _api_key):
+def build_index(files):
     """Index the uploaded files. `files` is a tuple of (name, bytes), cached by content.
-    Returns the index and messages about files that couldn't be read."""
-    ask_ai = gemini_reader(_api_key, model)
+    Returns the search and messages about files that couldn't be read."""
     docs, problems = [], []
     for name, data in files:
         try:
-            for part in readers.read(name, data, ask_ai):
+            for part in readers.read(name, data):
                 docs.append(Document(text=part["text"], metadata={"file_name": part["file"], "where": part["where"]}))
         except readers.Unreadable as error:
             problems.append(str(error))
@@ -150,8 +116,7 @@ with st.sidebar:
     st.caption("[Get a free key](https://aistudio.google.com/apikey)")
     uploads = st.file_uploader("Your files", type=[ext.lstrip(".") for ext in readers.SUPPORTED],
                                accept_multiple_files=True,
-                               help="Documents, spreadsheets, slides, PDFs (scanned too), pictures, recordings, "
-                                    "emails, ebooks, web pages and zip files.")
+                               help="Documents, spreadsheets, slides, PDFs, emails, ebooks, web pages and zip files.")
     model = st.selectbox("Model", MODELS)
     st.button("New chat", on_click=reset_chat, use_container_width=True)
 
@@ -166,8 +131,7 @@ if not api_key:
     st.info("Enter your Gemini API key in the sidebar to start.")
     st.stop()
 if not uploads:
-    st.info("Upload one or more files in the sidebar: Word, Excel, PowerPoint, PDF, pictures, "
-            "recordings, emails and more.")
+    st.info("Upload one or more files in the sidebar: Word, Excel, PowerPoint, PDF, emails and more.")
     st.stop()
 
 files = tuple(sorted((f.name, f.getvalue()) for f in uploads))
@@ -177,7 +141,7 @@ if st.session_state.get("fingerprint") != fingerprint:  # new files or model: st
     reset_chat()
 
 with st.spinner("Reading the documents..."):
-    retriever, problems = build_index(files, model, api_key)
+    retriever, problems = build_index(files)
 for problem in problems:
     st.warning(problem)
 if retriever is None:

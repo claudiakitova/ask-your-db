@@ -1,8 +1,5 @@
 """Turn uploaded files into passages of text, each with where it came from (page, sheet, slide).
-
-Text formats are read inside the app. Scans, pictures and recordings are read by Gemini with the
-user's own key, because they have no text to extract.
-"""
+Everything is read inside the app."""
 import csv
 import email
 import email.policy
@@ -19,26 +16,10 @@ ROWS_PER_PASSAGE = 40  # spreadsheet rows per passage; each passage repeats the 
 TEXT = {".txt", ".md", ".markdown", ".rst", ".log", ".tex", ".yaml", ".yml", ".toml", ".ini", ".cfg",
         ".srt", ".vtt", ".py", ".js", ".ts", ".java", ".c", ".cpp", ".h", ".cs", ".go", ".rb", ".php",
         ".r", ".sql", ".sh", ".css", ".swift", ".kt", ".rs", ".m", ".scala", ".jl"}
-IMAGES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
-          ".heic": "image/heic", ".heif": "image/heif", ".gif": "image/gif", ".bmp": "image/bmp",
-          ".tif": "image/tiff", ".tiff": "image/tiff"}
-AUDIO = {".mp3": "audio/mp3", ".wav": "audio/wav", ".m4a": "audio/mp4", ".aac": "audio/aac",
-         ".ogg": "audio/ogg", ".oga": "audio/ogg", ".opus": "audio/ogg", ".flac": "audio/flac",
-         ".weba": "audio/webm"}
 OTHER = {".pdf", ".docx", ".xlsx", ".xlsm", ".xls", ".csv", ".tsv", ".pptx", ".odt", ".ods", ".odp",
          ".html", ".htm", ".xml", ".json", ".ipynb", ".rtf", ".epub", ".eml", ".msg", ".zip"}
-SUPPORTED = sorted(TEXT | set(IMAGES) | set(AUDIO) | OTHER)
+SUPPORTED = sorted(TEXT | OTHER)
 OLD_FORMATS = {".doc": "Word", ".ppt": "PowerPoint"}
-
-READ_SCAN = ("Transcribe all text in this document exactly, in its original language. Keep tables as "
-             "Markdown tables. Start each page with a line '=== Page N ===' where N is the page number. "
-             "If a page has no text, describe what it shows in one or two sentences.")
-READ_IMAGE = ("Transcribe all text in this image exactly, in its original language. Keep tables as Markdown "
-              "tables. Then, after a line '---', describe what the image shows in a few sentences. "
-              "If there is no text, give only the description.")
-READ_AUDIO = ("Transcribe this recording word for word, in its original language. Start a new paragraph "
-              "when the speaker changes, and label speakers as Speaker 1, Speaker 2 and so on.")
-
 
 class Unreadable(Exception):
     """A file that can't be read, with a message the user can act on."""
@@ -48,22 +29,18 @@ def passage(text, file, where=""):
     return {"text": text.strip(), "file": file, "where": where}
 
 
-def read(name, data, ask_ai):
-    """[passage, ...] for one uploaded file. ask_ai(data, mime_type, prompt) -> text, using Gemini."""
+def read(name, data):
+    """[passage, ...] for one uploaded file."""
     ext = PurePosixPath(name.lower()).suffix
     if ext in OLD_FORMATS:
         raise Unreadable(f"{name}: old {OLD_FORMATS[ext]} format. Open it and save it as {ext}x, then upload that.")
     reader = READERS.get(ext)
     if ext in TEXT:
         reader = read_text
-    elif ext in IMAGES:
-        return [passage(ask_ai(data, IMAGES[ext], READ_IMAGE), name, "picture")]
-    elif ext in AUDIO:
-        return [passage(ask_ai(data, AUDIO[ext], READ_AUDIO), name, "recording")]
     if reader is None:
         raise Unreadable(f"{name}: this kind of file isn't supported yet.")
     try:
-        found = reader(name, data, ask_ai)
+        found = reader(name, data)
     except Unreadable:
         raise
     except Exception as error:  # a damaged or password-protected file
@@ -89,11 +66,11 @@ def decode(data):
     return data.decode("cp1251" if russian else "cp1252", "replace")
 
 
-def read_text(name, data, ask_ai):
+def read_text(name, data):
     return [passage(decode(data), name)]
 
 
-def read_pdf(name, data, ask_ai):
+def read_pdf(name, data):
     from pypdf import PdfReader
     pdf = PdfReader(io.BytesIO(data))
     if pdf.is_encrypted:
@@ -109,19 +86,13 @@ def read_pdf(name, data, ask_ai):
         except Exception:
             pages.append((label, ""))
     empty = sum(1 for _, text in pages if len(text.strip()) < 10)
-    if pages and empty > len(pages) / 2:  # mostly scanned: let Gemini read the pages
-        return split_pages(name, ask_ai(data, "application/pdf", READ_SCAN))
+    if pages and empty > len(pages) / 2:
+        raise Unreadable(f"{name}: looks like a scan, so there's no text to read. Run it through OCR first "
+                         "(for example, Adobe Acrobat or Google Drive's 'Open with Google Docs').")
     return [passage(text, name, f"p. {label}") for label, text in pages]
 
 
-def split_pages(name, text):
-    parts = re.split(r"^=+\s*Page\s+(\d+)\s*=+\s*$", text, flags=re.M | re.I)
-    if len(parts) < 3:
-        return [passage(text, name, "scanned")]
-    return [passage(parts[i + 1], name, f"p. {parts[i]}") for i in range(1, len(parts) - 1, 2)]
-
-
-def read_docx(name, data, ask_ai):
+def read_docx(name, data):
     import docx
     from docx.table import Table
     from docx.text.paragraph import Paragraph
@@ -183,7 +154,7 @@ def table_passages(name, sheet, rows):
     return found
 
 
-def read_xlsx(name, data, ask_ai):
+def read_xlsx(name, data):
     import openpyxl
     book = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     found = []
@@ -192,7 +163,7 @@ def read_xlsx(name, data, ask_ai):
     return found
 
 
-def read_xls(name, data, ask_ai):
+def read_xls(name, data):
     import xlrd
     book = xlrd.open_workbook(file_contents=data)
     found = []
@@ -201,7 +172,7 @@ def read_xls(name, data, ask_ai):
     return found
 
 
-def read_csv(name, data, ask_ai):
+def read_csv(name, data):
     text = decode(data)
     try:
         dialect = csv.Sniffer().sniff(text[:5000], delimiters=",;\t|")
@@ -210,7 +181,7 @@ def read_csv(name, data, ask_ai):
     return table_passages(name, "", csv.reader(io.StringIO(text), dialect))
 
 
-def read_pptx(name, data, ask_ai):
+def read_pptx(name, data):
     from pptx import Presentation
     deck = Presentation(io.BytesIO(data))
     found = []
@@ -250,7 +221,7 @@ def odf_text(element):
     return "".join(parts)
 
 
-def read_odf(name, data, ask_ai):
+def read_odf(name, data):
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         root = ElementTree.fromstring(archive.read("content.xml"))
     body = root.find(ODF % "office" + "body")
@@ -309,21 +280,21 @@ def html_text(html):
     return re.sub(r"\n\s*\n+", "\n\n", re.sub(r"[ \t]+", " ", text)).strip()
 
 
-def read_html(name, data, ask_ai):
+def read_html(name, data):
     return [passage(html_text(decode(data)), name)]
 
 
-def read_xml(name, data, ask_ai):
+def read_xml(name, data):
     root = ElementTree.fromstring(data)
     return [passage("\n".join(t.strip() for t in root.itertext() if t.strip()), name)]
 
 
-def read_json(name, data, ask_ai):
+def read_json(name, data):
     value = json.loads(decode(data))
     return [passage(json.dumps(value, ensure_ascii=False, indent=1), name)]
 
 
-def read_ipynb(name, data, ask_ai):
+def read_ipynb(name, data):
     notebook = json.loads(decode(data))
     found = []
     for number, cell in enumerate(notebook.get("cells", []), 1):
@@ -337,12 +308,12 @@ def read_ipynb(name, data, ask_ai):
     return found
 
 
-def read_rtf(name, data, ask_ai):
+def read_rtf(name, data):
     from striprtf.striprtf import rtf_to_text
     return [passage(rtf_to_text(decode(data), errors="ignore"), name)]
 
 
-def read_epub(name, data, ask_ai):
+def read_epub(name, data):
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         container = ElementTree.fromstring(archive.read("META-INF/container.xml"))
         opf_path = next(e.get("full-path") for e in container.iter() if e.get("full-path"))
@@ -365,7 +336,7 @@ def read_epub(name, data, ask_ai):
         return found
 
 
-def read_eml(name, data, ask_ai):
+def read_eml(name, data):
     message = email.message_from_bytes(data, policy=email.policy.default)
     head = "\n".join(f"{key}: {message[key]}" for key in ("From", "To", "Cc", "Date", "Subject") if message[key])
     body = message.get_body(preferencelist=("plain", "html"))
@@ -380,7 +351,7 @@ def read_eml(name, data, ask_ai):
         filename = part.get_filename()
         if filename and PurePosixPath(filename.lower()).suffix in set(SUPPORTED) - {".eml"}:
             try:
-                found += [dict(p, file=f"{name} → {filename}") for p in read(filename, part.get_payload(decode=True), ask_ai)]
+                found += [dict(p, file=f"{name} → {filename}") for p in read(filename, part.get_payload(decode=True))]
             except Unreadable:
                 pass
     if attachments:
@@ -388,7 +359,7 @@ def read_eml(name, data, ask_ai):
     return found
 
 
-def read_msg(name, data, ask_ai):
+def read_msg(name, data):
     import extract_msg
     message = extract_msg.openMsg(io.BytesIO(data))
     try:
@@ -399,7 +370,7 @@ def read_msg(name, data, ask_ai):
         message.close()
 
 
-def read_zip(name, data, ask_ai):
+def read_zip(name, data):
     found, total = [], 0
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         for info in archive.infolist():
@@ -412,7 +383,7 @@ def read_zip(name, data, ask_ai):
             if PurePosixPath(inner.lower()).suffix not in SUPPORTED:
                 continue
             try:
-                found += [dict(p, file=f"{name} → {p['file']}") for p in read(inner, archive.read(info), ask_ai)]
+                found += [dict(p, file=f"{name} → {p['file']}") for p in read(inner, archive.read(info))]
             except Unreadable:
                 continue
     return found

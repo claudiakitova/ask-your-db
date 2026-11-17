@@ -11,13 +11,9 @@ Upload your files and ask questions about them. Every answer lists where it came
 | Documents | Word (.docx), OpenDocument (.odt), PDF, RTF, plain text, Markdown | page or section |
 | Spreadsheets | Excel (.xlsx, .xlsm, .xls), OpenDocument (.ods), CSV, TSV | sheet and rows |
 | Slides | PowerPoint (.pptx, with speaker notes), OpenDocument (.odp) | slide |
-| Scans and pictures | Scanned PDFs, photos, screenshots (.png, .jpg, .heic and others) | page |
-| Recordings | .mp3, .m4a, .wav, .ogg, .flac | the recording |
 | Email and books | .eml, Outlook .msg (with attachments), EPUB | email or chapter |
 | Web and data | HTML, JSON, XML, YAML, Jupyter notebooks, code files | the file |
 | Archives | .zip: the files inside are read | the file inside |
-
-Text files are read inside the app. Scans, pictures and recordings have no text to pull out, so Gemini reads them with your key: it writes out the text, describes pictures, and transcribes recordings. Old .doc and .ppt files need to be saved as .docx or .pptx first.
 
 ## How it works
 

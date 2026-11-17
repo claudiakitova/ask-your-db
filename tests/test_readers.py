@@ -9,18 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import readers  # noqa: E402
 
-ASKED = []
-
-
-def fake_ai(data, mime_type, prompt):
-    ASKED.append(mime_type)
-    if mime_type == "application/pdf":
-        return "=== Page 1 ===\nScanned invoice 42\n=== Page 2 ===\nTotal due 310 EUR"
-    return f"read by AI: {mime_type}"
-
-
 def read(name, data):
-    return readers.read(name, data, fake_ai)
+    return readers.read(name, data)
 
 
 def text_of(parts):
@@ -72,10 +62,9 @@ class Formats(unittest.TestCase):
         self.assertEqual([p["where"] for p in parts], ["p. 1", "p. 2"])
         self.assertIn("Revenue grew 12 percent", parts[0]["text"])
 
-    def test_scanned_pdf_goes_to_ai(self):
-        parts = read("scan.pdf", tiny_pdf(["", ""]))
-        self.assertEqual([p["where"] for p in parts], ["p. 1", "p. 2"])
-        self.assertIn("Total due 310 EUR", parts[1]["text"])
+    def test_scanned_pdf_explains(self):
+        with self.assertRaisesRegex(readers.Unreadable, "looks like a scan"):
+            read("scan.pdf", tiny_pdf(["", ""]))
 
     def test_docx_with_headings_and_table(self):
         import docx
@@ -168,11 +157,7 @@ class Formats(unittest.TestCase):
     def test_zip_reads_inside(self):
         archive = zipped({"a/notes.md": "# Trip\nWe went to Kyoto.", "__MACOSX/._x": "junk", "b/photo.jpg": b"\xff\xd8"})
         parts = read("bundle.zip", archive)
-        self.assertEqual({p["file"] for p in parts}, {"bundle.zip → a/notes.md", "bundle.zip → b/photo.jpg"})
-
-    def test_pictures_and_recordings_go_to_ai(self):
-        self.assertEqual(read("receipt.png", b"x")[0]["text"], "read by AI: image/png")
-        self.assertEqual(read("call.m4a", b"x")[0]["where"], "recording")
+        self.assertEqual({p["file"] for p in parts}, {"bundle.zip → a/notes.md"})  # the photo is skipped
 
     def test_old_formats_and_damaged_files_explain(self):
         with self.assertRaisesRegex(readers.Unreadable, "save it as .docx"):
