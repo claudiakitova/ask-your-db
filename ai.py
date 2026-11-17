@@ -6,7 +6,7 @@ SERVICES = {
     "Gemini": {"models": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"],
                "key_url": "https://aistudio.google.com/apikey",
                "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"},
-    "Mistral": {"models": ["mistral-medium-latest", "mistral-small-latest"],
+    "Mistral": {"models": ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"],
                 "key_url": "https://console.mistral.ai/api-keys",
                 "url": "https://api.mistral.ai/v1/chat/completions"},
     "Groq": {"models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
