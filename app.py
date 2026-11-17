@@ -15,7 +15,7 @@ from local_embedding import LocalEmbedding
 st.set_page_config(page_title="Chat with your data", page_icon="📄", layout="centered")
 
 BOT, USER = "📄", "🙂"
-MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"]
+MODELS = ["gemini-3.8-flash", "gemini-3.7-flash"]
 PASSAGES = 8  # passages per question: enough to combine a document, a sheet and a slide
 SYSTEM_PROMPT = (
     "You answer questions about the documents the user uploaded. Use only what the "
