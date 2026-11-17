@@ -6,7 +6,11 @@ import streamlit as st
 from google import genai
 from google.genai import types
 from llama_index.core import Document, Settings, VectorStoreIndex
+from llama_index.core.chat_engine import CondensePlusContextChatEngine
+from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.retrievers.bm25 import BM25Retriever
 
 import readers
 from local_embedding import LocalEmbedding
@@ -15,6 +19,7 @@ st.set_page_config(page_title="Chat with your data", page_icon="📄", layout="c
 
 BOT, USER = "📄", "🙂"
 MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+PASSAGES = 8  # passages per question: enough to combine a document, a sheet and a slide
 SYSTEM_PROMPT = (
     "You answer questions about the documents the user uploaded. Use only what the "
     "documents say. Get straight to the answer, without greetings. If the documents "
@@ -94,8 +99,22 @@ def build_index(files, model, _api_key):
                 docs.append(Document(text=part["text"], metadata={"file_name": part["file"], "where": part["where"]}))
         except readers.Unreadable as error:
             problems.append(str(error))
-    index = VectorStoreIndex.from_documents(docs, embed_model=embedder()) if docs else None
-    return index, problems
+    if not docs:
+        return None, problems
+    # passages of about 512 tokens: the embedding model reads 512, and a fact isn't drowned in a long passage
+    index = VectorStoreIndex.from_documents(
+        docs, embed_model=embedder(), transformations=[SentenceSplitter(chunk_size=512, chunk_overlap=64)])
+    return search(index), problems
+
+
+def search(index):
+    """Search by meaning (embeddings) and by words (BM25) together, merged by rank. Words catch exact
+    names, codes and numbers that meaning search misses; meaning catches questions phrased differently."""
+    nodes = list(index.docstore.docs.values())
+    top = min(PASSAGES, len(nodes))
+    return QueryFusionRetriever(
+        [index.as_retriever(similarity_top_k=top), BM25Retriever.from_defaults(nodes=nodes, similarity_top_k=top)],
+        similarity_top_k=top, num_queries=1, mode="reciprocal_rerank", use_async=False)
 
 
 def source_list(nodes):
@@ -158,10 +177,10 @@ if st.session_state.get("fingerprint") != fingerprint:  # new files or model: st
     reset_chat()
 
 with st.spinner("Reading the documents..."):
-    index, problems = build_index(files, model, api_key)
+    retriever, problems = build_index(files, model, api_key)
 for problem in problems:
     st.warning(problem)
-if index is None:
+if retriever is None:
     st.stop()
 
 if "chat_engine" not in st.session_state:
@@ -170,10 +189,8 @@ if "chat_engine" not in st.session_state:
     except Exception as error:
         st.error(friendly(error))
         st.stop()
-    st.session_state.chat_engine = index.as_chat_engine(
-        chat_mode="condense_plus_context", system_prompt=SYSTEM_PROMPT, llm=llm,
-        similarity_top_k=8,  # passages per question: enough to combine a document, a sheet and a slide
-    )
+    st.session_state.chat_engine = CondensePlusContextChatEngine.from_defaults(
+        retriever=retriever, llm=llm, system_prompt=SYSTEM_PROMPT)
 
 if not st.session_state.messages:
     names = ", ".join(n for n, _ in files)

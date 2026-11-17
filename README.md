@@ -23,7 +23,7 @@ Text files are read inside the app. Scans, pictures and recordings have no text 
 
 1. You paste your own free Gemini API key in the sidebar. It stays in your browser session and isn't stored.
 2. The app splits your files into passages, keeping where each one came from, and indexes them with a small free model that runs inside the app, so searching costs nothing.
-3. For each question, it finds the most relevant passages, and Gemini writes the answer from them, remembering the conversation.
+3. For each question, it searches two ways at once: by meaning, and by the exact words, which catches names, codes and numbers. The 8 best passages go to Gemini, which writes the answer from them and remembers the conversation.
 
 Answers come in the language of the question, and the app says so when the documents don't cover something.
 
@@ -57,7 +57,7 @@ python -m unittest discover -s tests
 
 ## Tools
 
-Python, Streamlit, LlamaIndex, Google Gemini, FastEmbed, pypdf, python-docx, openpyxl, python-pptx
+Python, Streamlit, LlamaIndex, Google Gemini, FastEmbed, BM25, pypdf, python-docx, openpyxl, python-pptx
 
 ## License
 
