@@ -20,7 +20,8 @@ BOT, USER = "📄", "🙂"
 SERVICES = {
     "Gemini": {"models": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"],
                "key_url": "https://aistudio.google.com/apikey"},
-    "Mistral": {"models": ["mistral-large-latest", "mistral-small-latest"],
+    # Large isn't offered: it always sends its reasoning along with the answer, which comes out empty here
+    "Mistral": {"models": ["mistral-medium-latest", "mistral-small-latest"],
                 "key_url": "https://console.mistral.ai/api-keys", "api_base": "https://api.mistral.ai/v1"},
     "Groq": {"models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
              "key_url": "https://console.groq.com/keys", "api_base": "https://api.groq.com/openai/v1"},
