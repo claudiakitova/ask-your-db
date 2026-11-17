@@ -1,3 +1,4 @@
+# Python 3.12. Readers for each file type: pypdf, python-docx, openpyxl, xlrd, python-pptx, striprtf, extract-msg
 streamlit==1.66.1
 llama-index-core==0.14.25
 llama-index-llms-google-genai==0.11.3
