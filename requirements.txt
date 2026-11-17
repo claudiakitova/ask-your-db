@@ -1,11 +1,8 @@
 # Python 3.12. Readers for each file type: pypdf, python-docx, openpyxl, xlrd, python-pptx, striprtf, extract-msg
 streamlit==1.66.1
-llama-index-core==0.14.25
-llama-index-llms-google-genai==0.11.3
-llama-index-llms-openai-like==0.9.0
-llama-index-retrievers-bm25==0.9.0
-google-genai==2.33.0
 fastembed==0.9.1
+numpy==2.5.5
+requests==2.34.2
 onnxruntime==1.23.2
 pypdf==6.21.4
 python-docx==1.2.0

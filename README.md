@@ -23,6 +23,8 @@ Upload your files and ask questions about them. Every answer lists where it came
 
 Answers come in the language of the question, and the app says so when the documents don't cover something.
 
+The code is four short files and no AI framework: `readers.py` turns each file type into text, `search.py` cuts it into passages and finds the best ones, `ai.py` sends them to the service you chose, and `app.py` is the screen.
+
 ## Deploy your own
 
 1. Click **Use this template** at the top of this page and create your own copy of the repo.
@@ -46,14 +48,14 @@ To try it without installing anything, open your copy in GitHub Codespaces (**Co
 
 ## Tests
 
-Each format has a test that makes a small made-up file and reads it back:
+Each format has a test that makes a small made-up file and reads it back. The search and the AI calls are tested with stand-ins, so no key or internet is needed:
 ```
 python -m unittest discover -s tests
 ```
 
 ## Tools
 
-Python, Streamlit, LlamaIndex, Google Gemini, Mistral, Groq, FastEmbed, BM25, pypdf, python-docx, openpyxl, python-pptx
+Python, Streamlit, FastEmbed, NumPy, BM25, Google Gemini, Mistral, Groq, pypdf, python-docx, openpyxl, python-pptx
 
 ## License
 
