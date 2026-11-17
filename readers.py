@@ -8,6 +8,7 @@ RAG answers a question in three steps:
 The AI never sees your files, only the text this file pulls out of them. So the labels made
 here (page, sheet and rows, slide) are what the answer's sources point to.
 Everything is read inside the app; nothing is sent anywhere at this step."""
+
 import csv
 import email
 import email.policy
