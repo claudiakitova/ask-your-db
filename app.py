@@ -7,6 +7,7 @@ from llama_index.core.chat_engine import CondensePlusContextChatEngine
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.llms.openai_like import OpenAILike
 from llama_index.retrievers.bm25 import BM25Retriever
 
 import readers
@@ -15,7 +16,15 @@ from local_embedding import LocalEmbedding
 st.set_page_config(page_title="Chat with your data", page_icon="📄", layout="centered")
 
 BOT, USER = "📄", "🙂"
-MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"]
+# Each service has a free key. Mistral and Groq take OpenAI-style requests, so one connector serves both.
+SERVICES = {
+    "Gemini": {"models": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"],
+               "key_url": "https://aistudio.google.com/apikey"},
+    "Mistral": {"models": ["mistral-large-latest", "mistral-small-latest"],
+                "key_url": "https://console.mistral.ai/api-keys", "api_base": "https://api.mistral.ai/v1"},
+    "Groq": {"models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
+             "key_url": "https://console.groq.com/keys", "api_base": "https://api.groq.com/openai/v1"},
+}
 PASSAGES = 8  # passages per question: enough to combine a document, a sheet and a slide
 SYSTEM_PROMPT = (
     "You answer questions about the documents the user uploaded. Use only what the "
@@ -44,15 +53,23 @@ Settings.embed_model = embedder()  # never fall back to OpenAI defaults
 Settings.llm = None
 
 
-def friendly(error):
+def make_llm(service, model, api_key):
+    if service == "Gemini":
+        return GoogleGenAI(model=model, api_key=api_key, temperature=0.3)
+    return OpenAILike(model=model, api_base=SERVICES[service]["api_base"], api_key=api_key, temperature=0.3,
+                      is_chat_model=True, context_window=128000, max_retries=1, timeout=120)
+
+
+def friendly(error, service):
     text = str(error)
-    if "API key not valid" in text or "API_KEY_INVALID" in text:
-        return "That Gemini API key didn't work. Check it in the sidebar."
-    if "RESOURCE_EXHAUSTED" in text or "429" in text:
-        return "Gemini's free limit was reached. Wait a minute and try again."
-    if "503" in text or "UNAVAILABLE" in text:
-        return "Gemini is busy right now. Try again in a minute, or choose the other model."
-    return f"Gemini returned an error: {text[:300]}"
+    lower = text.lower()
+    if any(s in lower for s in ("api key not valid", "api_key_invalid", "invalid api key", "unauthorized", "401")):
+        return f"That {service} API key didn't work. Check it in the sidebar."
+    if any(s in lower for s in ("resource_exhausted", "429", "rate limit")):
+        return f"{service}'s free limit was reached. Wait a minute and try again, or switch to another service."
+    if any(s in lower for s in ("503", "unavailable", "overloaded", "high demand")):
+        return f"{service} is busy right now. Try again in a minute, or choose another model or service."
+    return f"{service} returned an error: {text[:300]}"
 
 
 SENTENCE_END = re.compile(r"(?<=[.!?…])\s+")
@@ -125,15 +142,17 @@ def reset_chat():
 
 with st.sidebar:
     st.markdown("### 📄 Chat with your data")
+    service = st.selectbox("AI service", list(SERVICES))
+    key_url = SERVICES[service]["key_url"]
     api_key = st.text_input(
-        "Gemini API key", type="password",
-        help="Free at aistudio.google.com/apikey. It stays in your browser session and isn't stored.",
+        f"{service} API key", type="password", key=f"key_{service}",
+        help=f"Free at {key_url.split('//')[1]}. It stays in your browser session and isn't stored.",
     )
-    st.caption("[Get a free key](https://aistudio.google.com/apikey)")
+    st.caption(f"[Get a free key]({key_url})")
     uploads = st.file_uploader("Your files", type=[ext.lstrip(".") for ext in readers.SUPPORTED],
                                accept_multiple_files=True,
                                help="Documents, spreadsheets, slides, PDFs, emails, ebooks, web pages and zip files.")
-    model = st.selectbox("Model", MODELS)
+    model = st.selectbox("Model", SERVICES[service]["models"], key=f"model_{service}")
     st.button("New chat", on_click=reset_chat, use_container_width=True)
 
 st.title("Chat with your data")
@@ -144,15 +163,15 @@ st.markdown(
 )
 
 if not api_key:
-    st.info("Enter your Gemini API key in the sidebar to start.")
+    st.info(f"Enter your {service} API key in the sidebar to start. Gemini, Mistral and Groq all give free keys.")
     st.stop()
 if not uploads:
     st.info("Upload one or more files in the sidebar: Word, Excel, PowerPoint, PDF, emails and more.")
     st.stop()
 
 files = tuple(sorted((f.name, f.getvalue()) for f in uploads))
-fingerprint = hashlib.sha256(b"".join(n.encode() + d for n, d in files) + model.encode()).hexdigest()
-if st.session_state.get("fingerprint") != fingerprint:  # new files or model: start over
+fingerprint = hashlib.sha256(b"".join(n.encode() + d for n, d in files) + f"{service}/{model}".encode()).hexdigest()
+if st.session_state.get("fingerprint") != fingerprint:  # new files, service or model: start over
     st.session_state.fingerprint = fingerprint
     reset_chat()
 
@@ -165,9 +184,9 @@ if retriever is None:
 
 if "chat_engine" not in st.session_state:
     try:
-        llm = GoogleGenAI(model=model, api_key=api_key, temperature=0.3)
+        llm = make_llm(service, model, api_key)
     except Exception as error:
-        st.error(friendly(error))
+        st.error(friendly(error, service))
         st.stop()
     st.session_state.chat_engine = CondensePlusContextChatEngine.from_defaults(
         retriever=retriever, llm=llm, system_prompt=SYSTEM_PROMPT)
@@ -190,6 +209,6 @@ if prompt := st.chat_input("Ask about your documents"):
                 answer = {"role": "assistant", "content": response.response,
                           "sources": source_list(response.source_nodes)}
             except Exception as error:  # bad key, quota, network
-                answer = {"role": "assistant", "content": friendly(error)}
+                answer = {"role": "assistant", "content": friendly(error, service)}
     st.session_state.messages.append(answer)
     st.rerun()

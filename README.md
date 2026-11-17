@@ -17,9 +17,9 @@ Upload your files and ask questions about them. Every answer lists where it came
 
 ## How it works
 
-1. You paste your own free Gemini API key in the sidebar. It stays in your browser session and isn't stored.
+1. You choose an AI service (Gemini, Mistral or Groq) and paste your own free API key in the sidebar. It stays in your browser session and isn't stored.
 2. The app splits your files into passages, keeping where each one came from, and indexes them with a small free model that runs inside the app, so searching costs nothing.
-3. For each question, it searches two ways at once: by meaning, and by the exact words, which catches names, codes and numbers. The 8 best passages go to Gemini, which writes the answer from them and remembers the conversation.
+3. For each question, it searches two ways at once: by meaning, and by the exact words, which catches names, codes and numbers. The 8 best passages go to the AI service you chose, which writes the answer from them and remembers the conversation.
 
 Answers come in the language of the question, and the app says so when the documents don't cover something.
 
@@ -28,13 +28,13 @@ Answers come in the language of the question, and the app says so when the docum
 1. Click **Use this template** at the top of this page and create your own copy of the repo.
 2. Go to https://share.streamlit.io, click **Create app**, and choose your copy, branch `main`, file `app.py`.
 3. Under **Advanced settings**, set Python to **3.12**. No secrets are needed.
-4. Click **Deploy**, then paste your free [Gemini API key](https://aistudio.google.com/apikey) in the app's sidebar.
+4. Click **Deploy**, then paste a free API key in the app's sidebar: [Gemini](https://aistudio.google.com/apikey), [Mistral](https://console.mistral.ai/api-keys) or [Groq](https://console.groq.com/keys).
 
 To try it without installing anything, open your copy in GitHub Codespaces (**Code**, then **Codespaces**). It installs everything and starts the app.
 
 ## Run it locally
 
-1. Get a free Gemini API key at https://aistudio.google.com/apikey.
+1. Get a free API key from [Gemini](https://aistudio.google.com/apikey), [Mistral](https://console.mistral.ai/api-keys) or [Groq](https://console.groq.com/keys).
 2. Install the requirements (Python 3.12):
    ```
    pip install -r requirements.txt
@@ -53,7 +53,7 @@ python -m unittest discover -s tests
 
 ## Tools
 
-Python, Streamlit, LlamaIndex, Google Gemini, FastEmbed, BM25, pypdf, python-docx, openpyxl, python-pptx
+Python, Streamlit, LlamaIndex, Google Gemini, Mistral, Groq, FastEmbed, BM25, pypdf, python-docx, openpyxl, python-pptx
 
 ## License
 
