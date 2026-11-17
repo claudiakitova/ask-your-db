@@ -9,7 +9,8 @@ SERVICES = {
     "Mistral": {"models": ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"],
                 "key_url": "https://console.mistral.ai/api-keys",
                 "url": "https://api.mistral.ai/v1/chat/completions"},
-    "Groq": {"models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
+    # Groq's free plan allows 8,000 tokens a minute, so it gets fewer passages per question
+    "Groq": {"models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"], "passages": 5,
              "key_url": "https://console.groq.com/keys",
              "url": "https://api.groq.com/openai/v1/chat/completions"},
 }

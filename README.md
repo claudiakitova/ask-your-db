@@ -19,7 +19,7 @@ Upload your files and ask questions about them. Every answer lists where it came
 
 1. You choose an AI service (Gemini, Mistral or Groq) and paste your own free API key in the sidebar. It stays in your browser session and isn't stored.
 2. The app splits your files into passages, keeping where each one came from, and indexes them with a small free model that runs inside the app, so searching costs nothing.
-3. For each question, it searches two ways at once: by meaning, and by the exact words, which catches names, codes and numbers. The 8 best passages go to the AI service you chose, which writes the answer from them and remembers the conversation.
+3. For each question, it searches two ways at once: by meaning, and by the exact words, which catches names, codes and numbers. The 8 best passages (5 for Groq, whose free limit is smaller) go to the AI service you chose, which writes the answer from them and remembers the conversation.
 
 Answers come in the language of the question, and the app says so when the documents don't cover something.
 

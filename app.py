@@ -128,7 +128,7 @@ if prompt := st.chat_input("Ask about your documents"):
         with st.spinner("Searching the documents..."):
             try:
                 question = ai.standalone(service, model, api_key, earlier, prompt)
-                passages = index.search(question, PASSAGES)
+                passages = index.search(question, ai.SERVICES[service].get("passages", PASSAGES))
                 reply = {"role": "assistant", "content": ai.answer(service, model, api_key, earlier, prompt, passages),
                          "sources": source_list(passages)}
             except ai.AIError as error:
