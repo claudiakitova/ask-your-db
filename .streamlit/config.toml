@@ -5,3 +5,7 @@ backgroundColor = "#0B1020"
 secondaryBackgroundColor = "#151C30"
 textColor = "#E6EAF2"
 font = "sans serif"
+
+[server]
+# Reload readers.py, search.py and ai.py too when they change, not only app.py
+fileWatcherType = "poll"
