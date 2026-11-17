@@ -1,4 +1,5 @@
 import hashlib
+import re
 
 import streamlit as st
 from llama_index.core import Document, Settings, VectorStoreIndex
@@ -54,6 +55,21 @@ def friendly(error):
     return f"Gemini returned an error: {text[:300]}"
 
 
+SENTENCE_END = re.compile(r"(?<=[.!?…])\s+")
+
+
+def sentences(text):
+    """Split text after . ! ? or … followed by a space. LlamaIndex's default splitter needs NLTK
+    language data downloaded at run time, which fails on Streamlit Cloud."""
+    parts, start = [], 0
+    for match in SENTENCE_END.finditer(text):
+        parts.append(text[start:match.end()])
+        start = match.end()
+    if start < len(text):
+        parts.append(text[start:])
+    return parts
+
+
 @st.cache_resource(show_spinner=False, max_entries=5)
 def build_index(files):
     """Index the uploaded files. `files` is a tuple of (name, bytes), cached by content.
@@ -69,7 +85,7 @@ def build_index(files):
         return None, problems
     # passages of about 512 tokens: the embedding model reads 512, and a fact isn't drowned in a long passage
     index = VectorStoreIndex.from_documents(
-        docs, embed_model=embedder(), transformations=[SentenceSplitter(chunk_size=512, chunk_overlap=64)])
+        docs, embed_model=embedder(), transformations=[SentenceSplitter(chunk_size=512, chunk_overlap=64, chunking_tokenizer_fn=sentences)])
     return search(index), problems
 
 
