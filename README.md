@@ -1,13 +1,28 @@
 # Chat with your data
 
-Upload one or more PDFs and ask questions about them. Every answer lists the pages it came from.
+Upload your files and ask questions about them. Every answer lists where it came from: the page, the sheet and rows, or the slide.
 
 **Try it:** https://ask-your-db.streamlit.app
+
+## What it reads
+
+| Kind | Files | Sources point to |
+|---|---|---|
+| Documents | Word (.docx), OpenDocument (.odt), PDF, RTF, plain text, Markdown | page or section |
+| Spreadsheets | Excel (.xlsx, .xlsm, .xls), OpenDocument (.ods), CSV, TSV | sheet and rows |
+| Slides | PowerPoint (.pptx, with speaker notes), OpenDocument (.odp) | slide |
+| Scans and pictures | Scanned PDFs, photos, screenshots (.png, .jpg, .heic and others) | page |
+| Recordings | .mp3, .m4a, .wav, .ogg, .flac | the recording |
+| Email and books | .eml, Outlook .msg (with attachments), EPUB | email or chapter |
+| Web and data | HTML, JSON, XML, YAML, Jupyter notebooks, code files | the file |
+| Archives | .zip: the files inside are read | the file inside |
+
+Text files are read inside the app. Scans, pictures and recordings have no text to pull out, so Gemini reads them with your key: it writes out the text, describes pictures, and transcribes recordings. Old .doc and .ppt files need to be saved as .docx or .pptx first.
 
 ## How it works
 
 1. You paste your own free Gemini API key in the sidebar. It stays in your browser session and isn't stored.
-2. The app splits your PDFs into passages and indexes them with a small free model that runs inside the app, so searching costs nothing.
+2. The app splits your files into passages, keeping where each one came from, and indexes them with a small free model that runs inside the app, so searching costs nothing.
 3. For each question, it finds the most relevant passages, and Gemini writes the answer from them, remembering the conversation.
 
 Answers come in the language of the question, and the app says so when the documents don't cover something.
@@ -33,9 +48,16 @@ To try it without installing anything, open your copy in GitHub Codespaces (**Co
    streamlit run app.py
    ```
 
+## Tests
+
+Each format has a test that makes a small made-up file and reads it back:
+```
+python -m unittest discover -s tests
+```
+
 ## Tools
 
-Python, Streamlit, LlamaIndex, Google Gemini, FastEmbed
+Python, Streamlit, LlamaIndex, Google Gemini, FastEmbed, pypdf, python-docx, openpyxl, python-pptx
 
 ## License
 

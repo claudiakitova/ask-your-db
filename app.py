@@ -1,11 +1,14 @@
 import hashlib
-import tempfile
-from pathlib import Path
+import io
+import time
 
 import streamlit as st
-from llama_index.core import Settings, SimpleDirectoryReader, VectorStoreIndex
+from google import genai
+from google.genai import types
+from llama_index.core import Document, Settings, VectorStoreIndex
 from llama_index.llms.google_genai import GoogleGenAI
 
+import readers
 from local_embedding import LocalEmbedding
 
 st.set_page_config(page_title="Chat with your data", page_icon="📄", layout="centered")
@@ -39,23 +42,69 @@ Settings.embed_model = embedder()  # never fall back to OpenAI defaults
 Settings.llm = None
 
 
+def friendly(error):
+    text = str(error)
+    if "API key not valid" in text or "API_KEY_INVALID" in text:
+        return "That Gemini API key didn't work. Check it in the sidebar."
+    if "RESOURCE_EXHAUSTED" in text or "429" in text:
+        return "Gemini's free limit was reached. Wait a minute and try again."
+    if "503" in text or "UNAVAILABLE" in text:
+        return "Gemini is busy right now. Try again in a minute, or choose the other model."
+    return f"Gemini returned an error: {text[:300]}"
+
+
+def gemini_reader(api_key, model):
+    """Reads scans, pictures and recordings with Gemini: returns ask_ai(data, mime_type, prompt) -> text."""
+    client = genai.Client(api_key=api_key)
+
+    def ask_ai(data, mime_type, prompt):
+        try:
+            if len(data) < 18_000_000:
+                content = types.Part.from_bytes(data=data, mime_type=mime_type)
+            else:  # big files go through Gemini's file upload
+                content = client.files.upload(file=io.BytesIO(data), config={"mime_type": mime_type})
+                while content.state and content.state.name == "PROCESSING":
+                    time.sleep(2)
+                    content = client.files.get(name=content.name)
+            for attempt in range(3):  # Gemini is sometimes busy (500/503); try twice more
+                try:
+                    response = client.models.generate_content(
+                        model=model, contents=[content, prompt], config=types.GenerateContentConfig(temperature=0))
+                    return response.text or ""
+                except Exception as error:
+                    busy = any(code in str(error) for code in ("503", "500", "UNAVAILABLE", "INTERNAL"))
+                    if not busy or attempt == 2:
+                        raise
+                    time.sleep(4 * (attempt + 1))
+        except Exception as error:
+            raise readers.Unreadable(friendly(error)) from error
+
+    return ask_ai
+
+
 @st.cache_resource(show_spinner=False, max_entries=5)
-def build_index(files):
-    """Index the uploaded PDFs. `files` is a tuple of (name, bytes), cached by content."""
-    with tempfile.TemporaryDirectory() as folder:
-        for name, data in files:
-            (Path(folder) / name).write_bytes(data)
-        docs = SimpleDirectoryReader(folder, required_exts=[".pdf"]).load_data()
-    return VectorStoreIndex.from_documents(docs, embed_model=embedder())
+def build_index(files, model, _api_key):
+    """Index the uploaded files. `files` is a tuple of (name, bytes), cached by content.
+    Returns the index and messages about files that couldn't be read."""
+    ask_ai = gemini_reader(_api_key, model)
+    docs, problems = [], []
+    for name, data in files:
+        try:
+            for part in readers.read(name, data, ask_ai):
+                docs.append(Document(text=part["text"], metadata={"file_name": part["file"], "where": part["where"]}))
+        except readers.Unreadable as error:
+            problems.append(str(error))
+    index = VectorStoreIndex.from_documents(docs, embed_model=embedder()) if docs else None
+    return index, problems
 
 
 def source_list(nodes):
     seen, lines = set(), []
     for node in nodes:
-        key = (node.metadata.get("file_name", "Document"), node.metadata.get("page_label"))
+        key = (node.metadata.get("file_name", "Document"), node.metadata.get("where", ""))
         if key not in seen:
             seen.add(key)
-            lines.append(f"{key[0]}, p. {key[1]}" if key[1] else key[0])
+            lines.append(f"{key[0]}, {key[1]}" if key[1] else key[0])
     return lines
 
 
@@ -80,14 +129,17 @@ with st.sidebar:
         help="Free at aistudio.google.com/apikey. It stays in your browser session and isn't stored.",
     )
     st.caption("[Get a free key](https://aistudio.google.com/apikey)")
-    uploads = st.file_uploader("PDF files", type="pdf", accept_multiple_files=True)
+    uploads = st.file_uploader("Your files", type=[ext.lstrip(".") for ext in readers.SUPPORTED],
+                               accept_multiple_files=True,
+                               help="Documents, spreadsheets, slides, PDFs (scanned too), pictures, recordings, "
+                                    "emails, ebooks, web pages and zip files.")
     model = st.selectbox("Model", MODELS)
     st.button("New chat", on_click=reset_chat, use_container_width=True)
 
 st.title("Chat with your data")
 st.markdown(
     "<div class='subtitle'>Upload documents and ask questions about them. "
-    "Every answer shows the pages it came from.</div>",
+    "Every answer shows where it came from.</div>",
     unsafe_allow_html=True,
 )
 
@@ -95,7 +147,8 @@ if not api_key:
     st.info("Enter your Gemini API key in the sidebar to start.")
     st.stop()
 if not uploads:
-    st.info("Upload one or more PDF files in the sidebar.")
+    st.info("Upload one or more files in the sidebar: Word, Excel, PowerPoint, PDF, pictures, "
+            "recordings, emails and more.")
     st.stop()
 
 files = tuple(sorted((f.name, f.getvalue()) for f in uploads))
@@ -105,16 +158,11 @@ if st.session_state.get("fingerprint") != fingerprint:  # new files or model: st
     reset_chat()
 
 with st.spinner("Reading the documents..."):
-    index = build_index(files)
-
-def friendly(error):
-    text = str(error)
-    if "API key not valid" in text or "API_KEY_INVALID" in text:
-        return "That Gemini API key didn't work. Check it in the sidebar."
-    if "RESOURCE_EXHAUSTED" in text or "429" in text:
-        return "Gemini's free limit was reached. Wait a minute and try again."
-    return f"Gemini returned an error: {text[:300]}"
-
+    index, problems = build_index(files, model, api_key)
+for problem in problems:
+    st.warning(problem)
+if index is None:
+    st.stop()
 
 if "chat_engine" not in st.session_state:
     try:
@@ -123,7 +171,8 @@ if "chat_engine" not in st.session_state:
         st.error(friendly(error))
         st.stop()
     st.session_state.chat_engine = index.as_chat_engine(
-        chat_mode="condense_plus_context", system_prompt=SYSTEM_PROMPT, llm=llm
+        chat_mode="condense_plus_context", system_prompt=SYSTEM_PROMPT, llm=llm,
+        similarity_top_k=8,  # passages per question: enough to combine a document, a sheet and a slide
     )
 
 if not st.session_state.messages:
