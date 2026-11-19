@@ -6,7 +6,7 @@ import ai
 import readers
 import search
 
-st.set_page_config(page_title="Chat with your data", page_icon="📄", layout="centered")
+st.set_page_config(page_title="Ask your data", page_icon="📄", layout="centered")
 
 BOT, USER = "📄", "🙂"
 PASSAGES = 8  # passages per question: enough to combine a document, a sheet and a slide
@@ -70,7 +70,7 @@ def reset_chat():
 
 
 with st.sidebar:
-    st.markdown("### 📄 Chat with your data")
+    st.markdown("### 📄 Ask your data")
     service = st.selectbox("AI service", list(ai.SERVICES))
     key_url = ai.SERVICES[service]["key_url"]
     api_key = st.text_input(
@@ -84,7 +84,7 @@ with st.sidebar:
     model = st.selectbox("Model", ai.SERVICES[service]["models"], key=f"model_{service}")
     st.button("New chat", on_click=reset_chat, use_container_width=True)
 
-st.title("Chat with your data")
+st.title("Ask your data")
 st.markdown(
     "<div class='subtitle'>Upload documents and ask questions about them. "
     "Every answer shows where it came from.</div>",

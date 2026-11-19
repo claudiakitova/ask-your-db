@@ -1,4 +1,4 @@
-# Chat with your data
+# Ask your data
 
 Upload your files and ask questions about them. Every answer lists where it came from: the page, the sheet and rows, or the slide.
 
