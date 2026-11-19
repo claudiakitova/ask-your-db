@@ -6,9 +6,9 @@ import ai
 import readers
 import search
 
-st.set_page_config(page_title="Ask your data", page_icon="📄", layout="centered")
+st.set_page_config(page_title="Ask your data", page_icon=":material/database:", layout="centered")
 
-BOT, USER = "📄", "🙂"
+BOT, USER = ":material/database:", "🙂"
 PASSAGES = 8  # passages per question: enough to combine a document, a sheet and a slide
 
 st.markdown(
@@ -70,7 +70,7 @@ def reset_chat():
 
 
 with st.sidebar:
-    st.markdown("### 📄 Ask your data")
+    st.markdown("### :material/database: Ask your data")
     service = st.selectbox("AI service", list(ai.SERVICES))
     key_url = ai.SERVICES[service]["key_url"]
     api_key = st.text_input(
