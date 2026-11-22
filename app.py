@@ -8,7 +8,7 @@ import search
 
 st.set_page_config(page_title="Ask your data", page_icon="icon.png", layout="centered")
 
-BOT, USER = ":material/plagiarism:", "🙂"
+BOT, USER = ":material/plagiarism:", ":material/person:"
 PASSAGES = 8  # passages per question: enough to combine a document, a sheet and a slide
 
 st.markdown(
