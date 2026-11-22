@@ -78,7 +78,7 @@ with st.sidebar:
         help=f"Free at {key_url.split('//')[1]}. It stays in your browser session and isn't stored.",
     )
     st.caption(f"[Get a free key]({key_url})")
-    uploads = st.file_uploader("Your files", type=[ext.lstrip(".") for ext in readers.SUPPORTED],
+    uploads = st.file_uploader("Your files",  # no type list: readers.read explains any file it can't read
                                accept_multiple_files=True,
                                help="Documents, spreadsheets, slides, PDFs, emails, ebooks, web pages and zip files.")
     model = st.selectbox("Model", ai.SERVICES[service]["models"], key=f"model_{service}")
