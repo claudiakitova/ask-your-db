@@ -60,3 +60,5 @@ Python, Streamlit, FastEmbed, NumPy, BM25, Google Gemini, Mistral, Groq, pypdf, 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+The icons are from Google [Material Symbols](https://fonts.google.com/icons), under the Apache License 2.0.
